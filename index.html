@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>KOF XV — Torneo Bracket | Selector de equipos por ronda</title>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #09090e;
+      --panel: #10101a;
+      --panel2: #14141f;
+      --border: #1c1c2e;
+      --gold: #c9a227;
+      --gold2: #e8b84b;
+      --red: #e03040;
+      --green: #28a060;
+      --gray: #2e2e42;
+      --text: #ddddf0;
+      --muted: #55557a;
+      --accent: #7050c0;
+    }
+
+    body { background: var(--bg); font-family: 'Rajdhani', sans-serif; color: var(--text); min-height: 100vh; }
+
+    #app { padding: 10px 14px; }
+
+    .header { text-align: center; padding: 16px 0 12px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+    .header h1 { font-family: 'Orbitron', monospace; font-size: 24px; font-weight: 900; letter-spacing: 5px; color: var(--gold); }
+    .header p { font-size: 12px; color: var(--muted); margin-top: 4px; letter-spacing: 2px; }
+
+    .info-bar { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .info-bar .hint { font-size: 11px; color: var(--muted); }
+    .info-bar .path-hint { font-family: monospace; font-size: 10px; background: #00000055; padding: 2px 8px; border-radius: 12px; color: var(--gold); }
+
+    .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+    .tab { font-family: 'Orbitron', monospace; font-size: 10px; padding: 8px 16px; cursor: pointer; border: none; background: transparent; color: var(--muted); letter-spacing: 1px; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .2s, border-color .2s; }
+    .tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .btn { background: var(--accent); border: none; border-radius: 4px; color: #fff; padding: 6px 14px; font-family: 'Orbitron', monospace; font-size: 10px; cursor: pointer; letter-spacing: 1px; white-space: nowrap; transition: filter .15s; }
+    .btn:hover { filter: brightness(1.2); }
+    .btn-red { background: var(--red); }
+    .btn-green { background: var(--green); }
+    .btn-gold { background: var(--gold); color: #000; }
+    .btn-sm { padding: 4px 10px; font-size: 9px; }
+
+    .bracket-wrap { overflow-x: auto; padding-bottom: 12px; }
+    .bracket-grid { display: flex; gap: 10px; min-width: 1200px; align-items: flex-start; padding: 4px 0; }
+    .round-col { flex: 1; min-width: 180px; }
+    .round-title { font-family: 'Orbitron', monospace; font-size: 9px; letter-spacing: 2px; color: var(--gold); text-align: center; padding: 5px 0; margin-bottom: 8px; border-bottom: 1px solid var(--gold); }
+
+    .pcard {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 7px;
+      padding: 7px 8px; margin-bottom: 2px; cursor: pointer;
+      transition: border-color .2s, background .2s; position: relative;
+    }
+    .pcard:hover { border-color: var(--accent); }
+    .pcard.st-winner { border-color: var(--green); background: #0b1a10; }
+    .pcard.st-loser  { border-color: #250a0d; background: #0e0608; opacity: .65; }
+    .pcard.st-champ  { border-color: var(--gold); background: #181008; }
+    .pcard.st-empty  { border-style: dashed; opacity: .3; cursor: default; pointer-events: none; }
+
+    .pcard-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+    .pcard-name { font-weight: 700; font-size: 13px; letter-spacing: .3px; }
+    .pcard.st-winner .pcard-name { color: #3dd882; }
+    .pcard.st-loser  .pcard-name { color: var(--muted); text-decoration: line-through; }
+    .pcard.st-champ  .pcard-name { color: var(--gold); }
+    .pcard-rank { font-family: 'Orbitron', monospace; font-size: 8px; color: var(--muted); }
+    .pcard.st-champ .pcard-rank { color: var(--gold); }
+
+    .pcard-team { display: flex; gap: 4px; align-items: flex-start; min-height: 56px; }
+    .pcard-char { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .pcard-char img { width: 44px; height: 44px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border); background: var(--gray); display: block; }
+    .pcard.st-loser .pcard-char img { filter: grayscale(100%); opacity: .6; }
+    .pcard-char span { font-size: 8px; color: var(--muted); max-width: 44px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
+    .pcard-no-team { font-size: 10px; color: var(--muted); font-family: 'Orbitron', monospace; letter-spacing: 1px; display: flex; align-items: center; height: 44px; }
+
+    .team-dots { display: flex; gap: 3px; margin-top: 4px; }
+    .tdot { width: 7px; height: 7px; border-radius: 2px; border: 1px solid var(--muted); background: var(--border); }
+    .tdot.d-active { background: var(--gold); border-color: var(--gold); }
+    .tdot.d-win    { background: var(--green); border-color: var(--green); }
+    .tdot.d-loss   { background: var(--red); border-color: var(--red); }
+    .tdot.d-unused { background: var(--gray); border-color: var(--gray); opacity: .3; }
+    .tdot.d-prev   { background: #4a6a50; border-color: #4a6a50; }
+
+    .badge-x { position: absolute; top: -4px; right: -4px; width: 14px; height: 14px; background: var(--red); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #fff; font-weight: 700; z-index: 2; }
+    .badge-crown { position: absolute; top: -6px; right: -3px; font-size: 14px; z-index: 2; }
+
+    .match-slot { position: relative; margin-bottom: 0; }
+    .match-sep { text-align: center; font-family: 'Orbitron', monospace; font-size: 8px; color: var(--muted); letter-spacing: 2px; padding: 2px 0; }
+
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.94); display: flex; align-items: center; justify-content: center; z-index: 500; padding: 16px; }
+    .overlay-box { background: var(--panel); border: 1px solid var(--gold); border-radius: 12px; padding: 18px; max-width: 700px; width: 100%; max-height: 90vh; overflow-y: auto; }
+    .ov-title { font-family: 'Orbitron', monospace; font-size: 12px; color: var(--gold); letter-spacing: 2px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .ov-vs-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; margin-bottom: 14px; }
+    .ov-vs { font-family: 'Orbitron', monospace; font-size: 20px; font-weight: 900; color: var(--red); text-align: center; }
+    .ov-pname { font-size: 15px; font-weight: 700; }
+    .ov-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
+    .ov-hint { text-align: center; margin-top: 8px; font-size: 11px; color: var(--muted); font-family: 'Orbitron', monospace; letter-spacing: 1px; }
+
+    .tp-section { background: var(--bg); border-radius: 8px; padding: 6px 0; }
+    .tp-label { font-family: 'Orbitron', monospace; font-size: 10px; color: var(--gold); letter-spacing: 1px; margin-bottom: 8px; padding-bottom: 2px; border-bottom: 1px solid var(--border); display: inline-block; }
+    .tp-teams { display: flex; flex-direction: column; gap: 6px; }
+    .tp-team {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border);
+      background: #0c0c14; cursor: pointer; transition: border-color .15s, background .15s;
+      position: relative;
+    }
+    .tp-team:hover:not(.tp-locked) { border-color: var(--accent); background: #15152a; transform: scale(0.99); }
+    .tp-team.tp-selected { border-color: var(--gold); background: #181008; }
+    .tp-team.tp-win      { border-color: var(--green); background: #0b1a10; cursor: default; }
+    .tp-team.tp-loss     { border-color: var(--red); background: #180a0b; cursor: default; }
+    .tp-team.tp-locked   { cursor: default; opacity: 0.9; }
+    .tp-team.tp-prev-used { border-color: #3a5a42; background: #102415; cursor: default; }
+
+    .tp-num { font-family: 'Orbitron', monospace; font-size: 9px; color: var(--muted); min-width: 26px; font-weight: bold; }
+    .tp-chars { display: flex; gap: 4px; }
+    .tp-char { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .tp-char img { width: 48px; height: 48px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border); background: var(--gray); }
+    .tp-char span { font-size: 9px; color: var(--muted); max-width: 48px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
+    .tp-status { margin-left: auto; font-family: 'Orbitron', monospace; font-size: 9px; letter-spacing: 1px; white-space: nowrap; font-weight: bold; }
+    .tp-win .tp-status    { color: var(--green); }
+    .tp-loss .tp-status   { color: var(--red); }
+    .tp-selected .tp-status { color: var(--gold); }
+    .tp-prev-used .tp-status { color: #5a8a62; }
+
+    .setup-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 10px; }
+    .setup-card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+    .setup-pname { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+    .setup-pname span { font-family: 'Orbitron', monospace; font-size: 10px; color: var(--muted); }
+    .setup-pname input { flex: 1; background: transparent; border: none; border-bottom: 1px solid var(--border); color: var(--text); font-family: 'Rajdhani', sans-serif; font-size: 14px; font-weight: 700; padding: 2px 4px; }
+    .setup-pname input:focus { outline: none; border-bottom-color: var(--gold); }
+    .setup-team { background: var(--bg); border-radius: 5px; padding: 6px 8px; margin-bottom: 6px; }
+    .setup-team-lbl { font-family: 'Orbitron', monospace; font-size: 9px; color: var(--muted); margin-bottom: 4px; }
+    .setup-chars { display: flex; gap: 4px; }
+    .setup-char-in { flex: 1; min-width: 60px; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; color: var(--text); padding: 3px 5px; font-family: 'Rajdhani', sans-serif; font-size: 12px; text-align: center; }
+    .setup-char-in:focus { outline: none; border-color: var(--accent); }
+    .standings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+    .st-card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+    .st-card.p1 { border-color: var(--gold); }
+    .st-card.p2 { border-color: #aaa; }
+    .st-card.p3 { border-color: #cd7f32; }
+    .st-num { font-family: 'Orbitron', monospace; font-size: 20px; font-weight: 900; color: var(--muted); }
+    .st-card.p1 .st-num { color: var(--gold); }
+    .st-card.p2 .st-num { color: #bbb; }
+    .st-card.p3 .st-num { color: #cd7f32; }
+    .st-name { font-weight: 700; font-size: 15px; margin-top: 2px; }
+    .st-label { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .reset-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+    .hint-text { font-size: 11px; color: var(--muted); }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <div class="header">
+    <h1>KOF XV — TORNEO</h1>
+    <p>BRACKET OFICIAL · SELECCIÓN DE EQUIPO POR RONDA · FOTOS DESDE /chars/</p>
+  </div>
+
+  <div class="info-bar">
+    <span class="hint">📁 Las imágenes se cargan desde la carpeta <strong class="path-hint">/chars/NOMBRE.png</strong> en la raíz del repositorio</span>
+    <span class="hint">✨ Los nombres de los personajes deben coincidir exactamente con los archivos .png (usa guiones bajos para espacios)</span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('bracket',event)">🏆 BRACKET</button>
+    <button class="tab"        onclick="showTab('setup',event)">⚙️ JUGADORES</button>
+    <button class="tab"        onclick="showTab('standings',event)">📊 CLASIFICACIÓN</button>
+  </div>
+
+  <div id="tab-bracket" class="tab-content active">
+    <div class="reset-row">
+      <button class="btn btn-red btn-sm" onclick="resetTournament()">🔄 REINICIAR TORNEO</button>
+      <span class="hint-text">👆 CLICK EN JUGADOR → SELECCIONA EQUIPO POR RONDA → REGISTRA RESULTADO</span>
+    </div>
+    <div class="bracket-wrap">
+      <div class="bracket-grid" id="bracketGrid"></div>
+    </div>
+  </div>
+
+  <div id="tab-setup" class="tab-content">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+      <button class="btn btn-sm" onclick="saveSetup()">💾 GUARDAR Y REINICIAR BRACKET</button>
+      <span class="hint-text">Edita nombres de jugadores y personajes (máx 3 por equipo).</span>
+    </div>
+    <div class="setup-grid" id="setupGrid"></div>
+  </div>
+
+  <div id="tab-standings" class="tab-content">
+    <div class="standings-grid" id="standingsGrid"></div>
+  </div>
+
+  <div class="overlay" id="overlay" style="display:none" onclick="overlayBgClick(event)">
+    <div class="overlay-box" id="overlayBox" onclick="event.stopPropagation()"></div>
+  </div>
+</div>
+
+<script>
+  // --------------------------------------------------------------
+  //  CONFIGURACIÓN GLOBAL - FOTOS DESDE CARPETA LOCAL DEL REPO
+  // --------------------------------------------------------------
+  // Las imágenes se cargan desde la carpeta "/chars/" en la raíz del sitio.
+  // Si estás en GitHub Pages, asegúrate de tener la carpeta "chars" en la raíz con los .png
+  function getCharacterImageUrl(charName) {
+    if (!charName) return '';
+    // Limpiar nombre: reemplazar espacios por guión bajo para URL amigable
+    const clean = charName.trim().replace(/\s+/g, '_');
+    // Ruta relativa a la raíz del sitio (funciona localmente y en GitHub Pages)
+    return `./chars/${encodeURIComponent(clean)}.png`;
+  }
+
+  const KOF_POOL = [
+    "Kyo","Iori","Terry","King","Andy","Joe","Yashiro","Chris","Shermie",
+    "Leona","Ralf","Clark","Athena","Kensou","Chin","Luong","Kukri",
+    "Isla","Dolores","Shunei","Ash","Benimaru","Goro","Ramon","Angel",
+    "Vice","Mature","Mai","Blue_Mary","Rock","Whip","Elisabeth",
+    "Duo_Lon","Shen_Woo","Maxima","K","Heidern","Chizuru","Rugal"
+  ];
+
+  function rndTeams() {
+    const pool = [...KOF_POOL].sort(() => Math.random() - .5);
+    return Array.from({length:4}, (_, i) => ({ chars: pool.slice(i*3, i*3+3) }));
+  }
+
+  // Jugadores base (16)
+  let players = Array.from({length:16}, (_, i) => ({
+    id: i,
+    name: `Jugador ${i+1}`,
+    teams: rndTeams()
+  }));
+
+  let matches = [];
+  let usedTeams = {};
+  let eliminated = [];
+  let champion = null;
+
+  function initTournamentStruct() {
+    matches = [];
+    usedTeams = {};
+    eliminated = [];
+    champion = null;
+    players.forEach(p => usedTeams[p.id] = new Set());
+
+    matches.push(Array.from({length:8}, (_, i) => mkMatch(i*2, i*2+1)));
+    matches.push(Array.from({length:4}, () => mkMatch(null, null)));
+    matches.push(Array.from({length:2}, () => mkMatch(null, null)));
+    matches.push([mkMatch(null, null)]);
+  }
+
+  function mkMatch(p1, p2) {
+    return { p1, p2, winner: null, teamP1: null, teamP2: null };
+  }
+
+  const gp = id => (id == null) ? null : players[id];
+  
+  function playerRank(pid) {
+    if (champion === pid) return 1;
+    const idx = eliminated.indexOf(pid);
+    if (idx !== -1) return (eliminated.length - idx) + 1;
+    return '?';
+  }
+
+  const RNAMES = ['RONDA 1 (16)', 'CUARTOS FINAL', 'SEMIFINAL', 'GRAN FINAL'];
+
+  function renderBracket() {
+    const grid = document.getElementById('bracketGrid');
+    let html = '';
+    matches.forEach((round, ri) => {
+      html += `<div class="round-col"><div class="round-title">${RNAMES[ri] || 'RONDA'}</div>`;
+      round.forEach((m, mi) => {
+        const marginTop = ri > 0 ? `margin-top:${(Math.pow(2, ri)-1)*90}px;` : '';
+        html += `<div class="match-slot" style="${marginTop}">`;
+        html += renderPlayerCard(m, 'p1', ri, mi);
+        html += `<div class="match-sep">⚔️ VS ⚔️</div>`;
+        html += renderPlayerCard(m, 'p2', ri, mi);
+        html += '</div>';
+      });
+      html += '</div>';
+    });
+
+    html += `<div class="round-col"><div class="round-title" style="color:var(--gold)">🏆 CAMPEÓN</div>`;
+    html += `<div style="margin-top:170px;">`;
+    if (champion !== null) {
+      const p = gp(champion);
+      html += `<div class="pcard st-champ" style="text-align:center;padding:18px;cursor:default;">
+        <div style="font-size:28px;margin-bottom:6px">👑</div>
+        <div class="pcard-name" style="font-size:18px;color:var(--gold)">${p.name}</div>
+        <div style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:2px;color:var(--gold);margin-top:5px">#1 CAMPEÓN ABSOLUTO</div>
+      </div>`;
+    } else {
+      html += `<div class="pcard st-empty" style="text-align:center;padding:20px;"><div style="font-size:22px;">❓</div><div>SIN DEFINIR</div></div>`;
+    }
+    html += '</div></div>';
+    grid.innerHTML = html;
+  }
+
+  function renderPlayerCard(m, side, ri, mi) {
+    const pid = m[side];
+    const p = gp(pid);
+    const teamIdx = (side === 'p1') ? m.teamP1 : m.teamP2;
+    const isWinner = (m.winner === pid && pid !== null);
+    const isLoser = (m.winner !== null && m.winner !== pid && pid !== null);
+    const isChamp = (champion === pid);
+    let cls = 'pcard';
+    if (isChamp) cls += ' st-champ';
+    else if (isWinner) cls += ' st-winner';
+    else if (isLoser) cls += ' st-loser';
+    else if (!p) cls += ' st-empty';
+    
+    const rank = p ? playerRank(pid) : '';
+    let dots = '';
+    if (p) {
+      const usedSet = usedTeams[pid] || new Set();
+      for (let t = 0; t < 4; t++) {
+        let dc = 'tdot';
+        if (t === teamIdx && (isWinner || isChamp)) dc += ' d-win';
+        else if (t === teamIdx && isLoser) dc += ' d-loss';
+        else if (t === teamIdx) dc += ' d-active';
+        else if (usedSet.has(t)) dc += ' d-prev';
+        else if (isLoser && !usedSet.has(t)) dc += ' d-unused';
+        dots += `<div class="${dc}" title="Equipo ${t+1}"></div>`;
+      }
+    }
+
+    let teamPhotos = '';
+    if (p && teamIdx !== null && p.teams[teamIdx]) {
+      const team = p.teams[teamIdx];
+      teamPhotos = team.chars.map(c => `
+        <div class="pcard-char">
+          <img src="${getCharacterImageUrl(c)}" alt="${c}" onerror="this.style.opacity='.15'; this.src='data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2044%2044%22%3E%3Crect%20width%3D%2244%22%20height%3D%2244%22%20fill%3D%22%23222%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20text-anchor%3D%22middle%22%20fill%3D%22gray%22%3E%3F%3C%2Ftext%3E%3C%2Fsvg%3E'" />
+          <span>${c}</span>
+        </div>`).join('');
+    } else if (p) {
+      teamPhotos = `<span class="pcard-no-team">⚡ EQUIPO NO SELECC.</span>`;
+    }
+    const xMark = isLoser ? '<div class="badge-x">✕</div>' : '';
+    const crown = isChamp ? '<div class="badge-crown">👑</div>' : '';
+    const clickable = p ? `onclick="openMatchOverlay(${ri},${mi})"` : '';
+    return `<div class="${cls}" ${clickable}>
+      ${xMark}${crown}
+      <div class="pcard-top">
+        <div class="pcard-name">${p ? p.name : '— VACANTE —'}</div>
+        ${p ? `<div class="pcard-rank">#${rank}</div>` : ''}
+      </div>
+      <div class="pcard-team">${teamPhotos}</div>
+      ${p ? `<div class="team-dots">${dots}</div>` : ''}
+    </div>`;
+  }
+
+  let activeMatchRef = null;
+  function openMatchOverlay(ri, mi) {
+    const m = matches[ri][mi];
+    if (!m.p1 && !m.p2) return;
+    activeMatchRef = { ri, mi };
+    const p1 = gp(m.p1);
+    const p2 = gp(m.p2);
+    const rname = RNAMES[ri] || `RONDA ${ri+1}`;
+    const box = document.getElementById('overlayBox');
+    
+    let html = `<div class="ov-title">
+      <span>🎮 ${rname} · PARTIDA ${mi+1}</span>
+      <button class="btn btn-sm" onclick="closeOverlay()">✕ CERRAR</button>
+    </div>
+    <div class="ov-vs-row">
+      <div><div class="ov-pname" style="${m.winner===m.p1?'color:var(--green)':m.winner && m.winner!==m.p1?'color:var(--muted)':''}">${p1 ? p1.name : 'TBD'}</div></div>
+      <div class="ov-vs">VS</div>
+      <div style="text-align:right"><div class="ov-pname" style="${m.winner===m.p2?'color:var(--green)':m.winner && m.winner!==m.p2?'color:var(--muted)':''}">${p2 ? p2.name : 'TBD'}</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">`;
+    
+    for (const side of ['p1', 'p2']) {
+      const p = side === 'p1' ? p1 : p2;
+      const pid = side === 'p1' ? m.p1 : m.p2;
+      const currentTeam = side === 'p1' ? m.teamP1 : m.teamP2;
+      const usedSet = usedTeams[pid] || new Set();
+      const matchDone = m.winner !== null;
+      const isWinner = m.winner === pid;
+      const isLoser = matchDone && !isWinner;
+      
+      html += `<div class="tp-section"><div class="tp-label">${p ? p.name : 'SIN JUGADOR'}</div><div class="tp-teams">`;
+      if (p) {
+        p.teams.forEach((team, ti) => {
+          const isCur = currentTeam === ti;
+          const wasUsed = usedSet.has(ti) && !isCur;
+          let cls = 'tp-team';
+          let status = '';
+          if (matchDone) {
+            if (isCur && isWinner) { cls += ' tp-win tp-locked'; status = '✅ GANÓ'; }
+            else if (isCur && isLoser) { cls += ' tp-loss tp-locked'; status = '❌ PERDIÓ'; }
+            else if (isCur) { cls += ' tp-selected tp-locked'; status = 'SELECCIONADO'; }
+            else { cls += ' tp-locked'; status = (wasUsed ? '🔁 USADO' : ''); }
+          } else {
+            if (isCur) { cls += ' tp-selected'; status = '🎯 SELECCIONADO'; }
+            else if (wasUsed) { cls += ' tp-prev-used'; status = '🕒 USADO ANTES'; }
+            else { cls += ''; status = ''; }
+          }
+          const clickAttr = (!matchDone && !isCur) ? `onclick="selectTeamForMatch(${ri},${mi},'${side}',${ti})"` : '';
+          const charsHtml = team.chars.map(c => `
+            <div class="tp-char">
+              <img src="${getCharacterImageUrl(c)}" onerror="this.style.opacity='.2'" />
+              <span>${c}</span>
+            </div>`).join('');
+          html += `<div class="${cls}" ${clickAttr}>
+            <span class="tp-num">E${ti+1}</span>
+            <div class="tp-chars">${charsHtml}</div>
+            ${status ? `<span class="tp-status">${status}</span>` : ''}
+          </div>`;
+        });
+      } else {
+        html += `<div style="padding:10px;color:gray;">⛔ Sin jugador asignado</div>`;
+      }
+      html += `</div></div>`;
+    }
+    html += `</div>`;
+    
+    if (m.winner === null && m.p1 !== null && m.p2 !== null && m.teamP1 !== null && m.teamP2 !== null) {
+      html += `<div class="ov-actions">
+        <button class="btn btn-green" onclick="declareWinner(${ri},${mi},'p1')">🏆 ${p1.name} GANA</button>
+        <button class="btn btn-green" onclick="declareWinner(${ri},${mi},'p2')">🏆 ${p2.name} GANA</button>
+      </div>`;
+    } else if (m.winner === null && (m.teamP1 === null || m.teamP2 === null)) {
+      html += `<div class="ov-hint">⚠️ AMBOS JUGADORES DEBEN SELECCIONAR UN EQUIPO para esta ronda ⚠️</div>`;
+    } else if (m.winner !== null) {
+      html += `<div style="text-align:center;margin-top:14px;"><span style="background:var(--gold);color:black;padding:4px 8px;border-radius:20px;">🏅 GANADOR: ${gp(m.winner)?.name}</span></div>`;
+    }
+    box.innerHTML = html;
+    document.getElementById('overlay').style.display = 'flex';
+  }
+  
+  function selectTeamForMatch(ri, mi, side, teamIdx) {
+    const m = matches[ri][mi];
+    if (side === 'p1') m.teamP1 = teamIdx;
+    else m.teamP2 = teamIdx;
+    openMatchOverlay(ri, mi);
+  }
+  
+  function declareWinner(ri, mi, winSide) {
+    const m = matches[ri][mi];
+    if (m.teamP1 === null || m.teamP2 === null) return;
+    const loserSide = winSide === 'p1' ? 'p2' : 'p1';
+    const winnerId = m[winSide];
+    const loserId = m[loserSide];
+    if (winnerId === null || loserId === null) return;
+    m.winner = winnerId;
+    
+    const winnerTeam = (winSide === 'p1') ? m.teamP1 : m.teamP2;
+    const loserTeam = (loserSide === 'p1') ? m.teamP1 : m.teamP2;
+    if (!usedTeams[winnerId]) usedTeams[winnerId] = new Set();
+    if (!usedTeams[loserId]) usedTeams[loserId] = new Set();
+    usedTeams[winnerId].add(winnerTeam);
+    usedTeams[loserId].add(loserTeam);
+    
+    if (loserId !== null && !eliminated.includes(loserId)) eliminated.push(loserId);
+    
+    const nextRound = ri + 1;
+    if (nextRound < matches.length) {
+      const nextMatchIdx = Math.floor(mi / 2);
+      const nextSide = (mi % 2 === 0) ? 'p1' : 'p2';
+      matches[nextRound][nextMatchIdx][nextSide] = winnerId;
+      if (nextSide === 'p1') matches[nextRound][nextMatchIdx].teamP1 = null;
+      else matches[nextRound][nextMatchIdx].teamP2 = null;
+    } else {
+      champion = winnerId;
+    }
+    closeOverlay();
+    renderBracket();
+    renderStandings();
+  }
+  
+  function closeOverlay() { document.getElementById('overlay').style.display = 'none'; activeMatchRef = null; }
+  function overlayBgClick(e) { if (e.target === document.getElementById('overlay')) closeOverlay(); }
+  
+  function renderSetup() {
+    const container = document.getElementById('setupGrid');
+    container.innerHTML = players.map((p, idx) => `
+      <div class="setup-card">
+        <div class="setup-pname">
+          <span>🎮 #${idx+1}</span>
+          <input type="text" value="${escapeHtml(p.name)}" onchange="players[${idx}].name = this.value" />
+        </div>
+        ${p.teams.map((team, ti) => `
+          <div class="setup-team">
+            <div class="setup-team-lbl">🔥 EQUIPO ${ti+1}</div>
+            <div class="setup-chars">
+              ${team.chars.map((ch, ci) => `<input class="setup-char-in" type="text" value="${escapeHtml(ch)}" onchange="players[${idx}].teams[${ti}].chars[${ci}] = this.value" />`).join('')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
+  }
+  
+  function saveSetup() {
+    if (!confirm('Guardar cambios reiniciará el torneo. ¿Continuar?')) return;
+    initTournamentStruct();
+    renderBracket();
+    renderStandings();
+    showTab('bracket', null);
+  }
+  
+  function escapeHtml(str) { return str.replace(/[&<>]/g, function(m){if(m==='&')return '&amp;';if(m==='<')return '&lt;';if(m==='>')return '&gt;';return m;});}
+  
+  function renderStandings() {
+    let ranking = [];
+    if (champion !== null) ranking.push({ id: champion, place: 1 });
+    const reversedElim = [...eliminated].reverse();
+    reversedElim.forEach((id, idx) => {
+      if (id !== champion) ranking.push({ id, place: 2 + idx });
+    });
+    players.forEach(p => {
+      if (!ranking.some(r => r.id === p.id)) ranking.push({ id: p.id, place: '—' });
+    });
+    const grid = document.getElementById('standingsGrid');
+    grid.innerHTML = ranking.map(r => {
+      const p = gp(r.id);
+      if (!p) return '';
+      const placeClass = r.place === 1 ? 'p1' : (r.place === 2 ? 'p2' : (r.place === 3 ? 'p3' : ''));
+      const title = r.place === 1 ? '🏆 CAMPEÓN' : (r.place === '—' ? '⚡ EN COMPETENCIA' : `🚫 ELIMINADO PUESTO #${r.place}`);
+      return `<div class="st-card ${placeClass}">
+        <div class="st-num">${r.place === 1 ? '👑' : '#'+r.place}</div>
+        <div class="st-name">${p.name}</div>
+        <div class="st-label">${title}</div>
+      </div>`;
+    }).join('');
+  }
+  
+  function resetTournament() {
+    if (!confirm('⚠️ Reiniciar elimina todos los resultados y selecciones de equipo. ¿Estás seguro?')) return;
+    initTournamentStruct();
+    renderBracket();
+    renderStandings();
+  }
+  
+  function showTab(name, e) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+    document.getElementById(`tab-${name}`).classList.add('active');
+    if (e && e.target) e.target.classList.add('active');
+    if (name === 'standings') renderStandings();
+    if (name === 'setup') renderSetup();
+    if (name === 'bracket') renderBracket();
+  }
+  
+  initTournamentStruct();
+  renderBracket();
+  renderStandings();
+</script>
+</body>
+</html>
