@@ -162,6 +162,9 @@
     .mm-slot .vs { font-family: 'Orbitron', monospace; color: var(--red); font-weight: bold; }
     .btn-confirm-mm { margin-top: 12px; text-align: center; }
     .warning { color: var(--gold2); font-size: 11px; margin-top: 6px; }
+    /* Estilos para campos deshabilitados en modo fijo */
+    .setup-char-in[readonly] { background: #1a1a2a; color: #aaa; cursor: default; border-color: #2a2a3e; opacity: 0.8; }
+    .readonly-hint { font-size: 9px; color: var(--muted); margin-top: 4px; text-align: center; font-family: monospace; }
   </style>
 </head>
 <body>
@@ -192,7 +195,7 @@
   <div id="tab-setup" class="tab-content">
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
       <button class="btn btn-sm" onclick="saveSetup()">💾 GUARDAR Y REINICIAR BRACKET</button>
-      <span class="hint-text">Edita nombres de jugadores y personajes (máx 3 por equipo).</span>
+      <span class="hint-text">Los personajes de cada equipo están fijados en código (no se pueden editar). Solo puedes cambiar nombres de jugadores.</span>
     </div>
     <div class="setup-grid" id="setupGrid"></div>
   </div>
@@ -207,31 +210,117 @@
 </div>
 
 <script>
-  // ---------- CONFIGURACION CHARS ----------
-  function getCharacterImageUrl(charName) {
-    if (!charName) return '';
-    const clean = charName.trim().replace(/\s+/g, '_');
-    return `./chars/${encodeURIComponent(clean)}.png`;
-  }
-
-  const KOF_POOL = [
-    "Kyo","Iori","Terry","King","Andy","Joe","Yashiro","Chris","Shermie",
-    "Leona","Ralf","Clark","Athena","Kensou","Chin","Luong","Kukri",
-    "Isla","Dolores","Shunei","Ash","Benimaru","Goro","Ramon","Angel",
-    "Vice","Mature","Mai","Blue_Mary","Rock","Whip","Elisabeth",
-    "Duo_Lon","Shen_Woo","Maxima","K","Heidern","Chizuru","Rugal"
+  // ---------- CONFIGURACION DE PERSONAJES FIJOS (HARDCODED) ----------
+  // Cada jugador tiene 4 equipos predefinidos (cada equipo con 3 personajes).
+  // Estos valores son fijos y no se pueden modificar desde la UI (solo los nombres de los jugadores son editables).
+  const FIXED_TEAMS_DATA = [
+    { name: "Lobo Solitario", teams: [
+      { chars: ["Kyo", "Iori", "Terry"] },
+      { chars: ["Leona", "Ralf", "Clark"] },
+      { chars: ["Athena", "Kensou", "Chin"] },
+      { chars: ["Mai", "King", "Blue_Mary"] }
+    ]},
+    { name: "Furia Ardiente", teams: [
+      { chars: ["Andy", "Joe", "Yashiro"] },
+      { chars: ["Chris", "Shermie", "Rock"] },
+      { chars: ["K", "Maxima", "Whip"] },
+      { chars: ["Ash", "Duo_Lon", "Shen_Woo"] }
+    ]},
+    { name: "Dragones Negros", teams: [
+      { chars: ["Rugal", "Vice", "Mature"] },
+      { chars: ["Heidern", "Chizuru", "Isla"] },
+      { chars: ["Dolores", "Shunei", "Benimaru"] },
+      { chars: ["Goro", "Ramon", "Angel"] }
+    ]},
+    { name: "Alas de Plata", teams: [
+      { chars: ["Elisabeth", "Luong", "Kukri"] },
+      { chars: ["Kyo", "Iori", "Terry"] },
+      { chars: ["Leona", "Ralf", "Clark"] },
+      { chars: ["Athena", "Mai", "King"] }
+    ]},
+    { name: "Tormenta Celestial", teams: [
+      { chars: ["Shermie", "Yashiro", "Chris"] },
+      { chars: ["Ash", "Duo_Lon", "Shen_Woo"] },
+      { chars: ["Rock", "K", "Maxima"] },
+      { chars: ["Rugal", "Heidern", "Chizuru"] }
+    ]},
+    { name: "Fénix Carmesí", teams: [
+      { chars: ["Iori", "Vice", "Mature"] },
+      { chars: ["Terry", "Andy", "Joe"] },
+      { chars: ["Mai", "King", "Blue_Mary"] },
+      { chars: ["Isla", "Dolores", "Shunei"] }
+    ]},
+    { name: "Titanes de Acero", teams: [
+      { chars: ["Ralf", "Clark", "Goro"] },
+      { chars: ["Maxima", "Benimaru", "Ramon"] },
+      { chars: ["Angel", "Whip", "Leona"] },
+      { chars: ["Kyo", "Athena", "Kensou"] }
+    ]},
+    { name: "Espectros del Pasado", teams: [
+      { chars: ["Chin", "Kukri", "Luong"] },
+      { chars: ["Elisabeth", "Ash", "Duo_Lon"] },
+      { chars: ["Shen_Woo", "Rock", "Rugal"] },
+      { chars: ["Heidern", "Chizuru", "Mature"] }
+    ]},
+    { name: "Juicio Final", teams: [
+      { chars: ["Orochi_Shermie", "Orochi_Yashiro", "Orochi_Chris"] },
+      { chars: ["Kyo", "Iori", "Terry"] },
+      { chars: ["Leona", "Ralf", "Clark"] },
+      { chars: ["Athena", "Mai", "King"] }
+    ]},
+    { name: "Almas Gemelas", teams: [
+      { chars: ["Blue_Mary", "Rock", "Whip"] },
+      { chars: ["Isla", "Dolores", "Shunei"] },
+      { chars: ["Benimaru", "Goro", "Ramon"] },
+      { chars: ["Angel", "Kukri", "Luong"] }
+    ]},
+    { name: "Centella Letal", teams: [
+      { chars: ["Elisabeth", "Kyo", "Iori"] },
+      { chars: ["K", "Maxima", "Whip"] },
+      { chars: ["Ash", "Duo_Lon", "Shen_Woo"] },
+      { chars: ["Rugal", "Mature", "Vice"] }
+    ]},
+    { name: "Guardianes del Tiempo", teams: [
+      { chars: ["Athena", "Kensou", "Chin"] },
+      { chars: ["Leona", "Ralf", "Clark"] },
+      { chars: ["Mai", "King", "Blue_Mary"] },
+      { chars: ["Terry", "Andy", "Joe"] }
+    ]},
+    { name: "Erupción Volcánica", teams: [
+      { chars: ["Yashiro", "Shermie", "Chris"] },
+      { chars: ["Rock", "K", "Maxima"] },
+      { chars: ["Heidern", "Chizuru", "Isla"] },
+      { chars: ["Dolores", "Shunei", "Benimaru"] }
+    ]},
+    { name: "Tempestad de Hielo", teams: [
+      { chars: ["Kula", "K'", "Maxima"] },
+      { chars: ["Ramon", "Angel", "Goro"] },
+      { chars: ["Whip", "Leona", "Ralf"] },
+      { chars: ["Clark", "Kyo", "Iori"] }
+    ]},
+    { name: "Relámpago Negro", teams: [
+      { chars: ["Benimaru", "Kukri", "Luong"] },
+      { chars: ["Elisabeth", "Ash", "Duo_Lon"] },
+      { chars: ["Shen_Woo", "Rock", "Rugal"] },
+      { chars: ["Heidern", "Chizuru", "Mature"] }
+    ]},
+    { name: "Cenizas del Fénix", teams: [
+      { chars: ["Iori", "Kyo", "Terry"] },
+      { chars: ["Athena", "Mai", "King"] },
+      { chars: ["Leona", "Clark", "Ralf"] },
+      { chars: ["Blue_Mary", "Rock", "Whip"] }
+    ]}
   ];
 
-  function rndTeams() {
-    const pool = [...KOF_POOL].sort(() => Math.random() - .5);
-    return Array.from({length:4}, (_, i) => ({ chars: pool.slice(i*3, i*3+3) }));
-  }
-
-  let players = Array.from({length:16}, (_, i) => ({
-    id: i,
-    name: `Jugador ${i+1}`,
-    teams: rndTeams()
+  // Aseguramos que tengamos exactamente 16 jugadores, si por casualidad hay más o menos se recorta/rellena
+  while(FIXED_TEAMS_DATA.length < 16) FIXED_TEAMS_DATA.push({ name: "Luchador Extra", teams: Array(4).fill().map(() => ({ chars: ["Kyo","Iori","Terry"] })) });
+  const PLAYERS_DATA = FIXED_TEAMS_DATA.slice(0, 16).map((data, idx) => ({
+    id: idx,
+    name: data.name,
+    teams: data.teams.map(team => ({ chars: [...team.chars] }))
   }));
+
+  let players = JSON.parse(JSON.stringify(PLAYERS_DATA)); // copia editable en nombres, pero equipos fijos
 
   let matches = [];       // estructura de rondas: [ [match...], [match...], ... ]
   let usedTeams = {};
@@ -280,26 +369,20 @@
     matches.push([{ p1: null, p2: null, winner: null, teamP1: null, teamP2: null }]);
   }
 
-  // Función para re-calcular brackets hacia arriba de forma automática y distribuida
-  // cuando se declara un ganador, se coloca en la siguiente ronda según el índice lógico (0-3 para cuartos, etc.)
   function propagateWinnerToNextRound(winnerId, currentRound, currentMatchIdx) {
     const nextRound = currentRound + 1;
     if (nextRound >= matches.length) {
       champion = winnerId;
       return;
     }
-    // Distribución estándar: cada partido de ronda superior recibe dos ganadores de los dos partidos inferiores
-    // Ejemplo: partido 0 de cuartos recibe ganadores de partidos 0 y 1 de R16.
     const nextMatchIdx = Math.floor(currentMatchIdx / 2);
     const side = (currentMatchIdx % 2 === 0) ? 'p1' : 'p2';
     matches[nextRound][nextMatchIdx][side] = winnerId;
     if (side === 'p1') matches[nextRound][nextMatchIdx].teamP1 = null;
     else matches[nextRound][nextMatchIdx].teamP2 = null;
-    // Limpiar winner del partido siguiente para que se pueda recalcular si se resetea algo
     matches[nextRound][nextMatchIdx].winner = null;
   }
 
-  function mkMatch(p1, p2) { return { p1, p2, winner: null, teamP1: null, teamP2: null }; }
   const gp = id => (id === null || id === undefined) ? null : players[id];
   
   function playerRank(pid) {
@@ -316,7 +399,6 @@
     let html = '';
     matches.forEach((round, ri) => {
       html += `<div class="round-col"><div class="round-title">${RNAMES[ri] || 'RONDA'}</div>`;
-      // Espaciado dinámico para mejor visualización de brackets
       round.forEach((m, mi) => {
         let marginTop = 0;
         if (ri === 1) marginTop = mi * 85;
@@ -401,7 +483,7 @@
   }
 
   let activeMatchRef = null;
-  function openMatchOverlay(ri, mi) {
+  function openMatchOverlay(ri, mi) { /* mismo código pero referencias a equipos fijos */ 
     const m = matches[ri][mi];
     if (!m.p1 && !m.p2) return;
     activeMatchRef = { ri, mi };
@@ -551,7 +633,7 @@
         return;
       }
       if (usedIds.has(p1id) || usedIds.has(p2id)) {
-        alert(`Error: Un jugador aparece más de una vez en la primera ronda. Cada jugador debe jugar exactamente un partido.`);
+        alert(`Error: Un jugador aparece más de una vez en la primera ronda.`);
         return;
       }
       usedIds.add(p1id);
@@ -580,12 +662,13 @@
         </div>
         ${p.teams.map((team, ti) => `
           <div class="setup-team">
-            <div class="setup-team-lbl">🔥 EQUIPO ${ti+1}</div>
+            <div class="setup-team-lbl">🔥 EQUIPO ${ti+1} (Fijo)</div>
             <div class="setup-chars">
-              ${team.chars.map((ch, ci) => `<input class="setup-char-in" type="text" value="${escapeHtml(ch)}" onchange="players[${idx}].teams[${ti}].chars[${ci}] = this.value" />`).join('')}
+              ${team.chars.map((ch, ci) => `<input class="setup-char-in" type="text" value="${escapeHtml(ch)}" readonly disabled />`).join('')}
             </div>
           </div>
         `).join('')}
+        <div class="readonly-hint">📌 Personajes bloqueados por diseño del torneo</div>
       </div>
     `).join('');
   }
@@ -600,17 +683,14 @@
   }
   
   function escapeHtml(str) { return str.replace(/[&<>]/g, function(m){if(m==='&')return '&amp;';if(m==='<')return '&lt;';if(m==='>')return '&gt;';return m;});}
+  function getCharacterImageUrl(charName) { if (!charName) return ''; const clean = charName.trim().replace(/\s+/g, '_'); return `./chars/${encodeURIComponent(clean)}.png`; }
   
   function renderStandings() {
     let ranking = [];
     if (champion !== null) ranking.push({ id: champion, place: 1 });
     const reversedElim = [...eliminated].reverse();
-    reversedElim.forEach((id, idx) => {
-      if (id !== champion) ranking.push({ id, place: 2 + idx });
-    });
-    players.forEach(p => {
-      if (!ranking.some(r => r.id === p.id)) ranking.push({ id: p.id, place: '—' });
-    });
+    reversedElim.forEach((id, idx) => { if (id !== champion) ranking.push({ id, place: 2 + idx }); });
+    players.forEach(p => { if (!ranking.some(r => r.id === p.id)) ranking.push({ id: p.id, place: '—' }); });
     const grid = document.getElementById('standingsGrid');
     grid.innerHTML = ranking.map(r => {
       const p = gp(r.id);
@@ -640,9 +720,7 @@
     if (e && e.target) e.target.classList.add('active');
     if (name === 'standings') renderStandings();
     if (name === 'setup') renderSetup();
-    if (name === 'bracket') {
-      renderBracket();
-    }
+    if (name === 'bracket') renderBracket();
   }
   
   initTournamentStruct();
