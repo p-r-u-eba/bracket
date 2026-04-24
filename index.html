@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>KOF XV — Torneo Bracket</title>
+  <title>KOF XV — Torneo Bracket con Emparejamientos Manuales</title>
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -50,9 +50,9 @@
     .btn-sm { padding: 4px 10px; font-size: 9px; }
 
     .bracket-wrap { overflow-x: auto; padding-bottom: 12px; }
-    .bracket-grid { display: flex; gap: 10px; min-width: 1200px; align-items: flex-start; padding: 4px 0; }
-    .round-col { flex: 1; min-width: 180px; }
-    .round-title { font-family: 'Orbitron', monospace; font-size: 9px; letter-spacing: 2px; color: var(--gold); text-align: center; padding: 5px 0; margin-bottom: 8px; border-bottom: 1px solid var(--gold); }
+    .bracket-grid { display: flex; gap: 20px; min-width: 1300px; align-items: flex-start; padding: 4px 0; }
+    .round-col { flex: 1; min-width: 210px; }
+    .round-title { font-family: 'Orbitron', monospace; font-size: 10px; letter-spacing: 2px; color: var(--gold); text-align: center; padding: 5px 0; margin-bottom: 12px; border-bottom: 1px solid var(--gold); }
 
     .pcard {
       background: var(--panel); border: 1px solid var(--border); border-radius: 7px;
@@ -154,6 +154,14 @@
     .st-label { font-size: 11px; color: var(--muted); margin-top: 3px; }
     .reset-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
     .hint-text { font-size: 11px; color: var(--muted); }
+    .matchmaking-panel { background: var(--panel); border: 1px solid var(--gold); border-radius: 8px; padding: 12px; margin-bottom: 16px; }
+    .mm-title { font-family: 'Orbitron', monospace; font-size: 12px; color: var(--gold); margin-bottom: 8px; }
+    .mm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+    .mm-slot { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .mm-slot select { flex: 1; background: var(--panel); color: white; border: 1px solid var(--border); border-radius: 4px; padding: 5px 8px; font-family: 'Rajdhani', sans-serif; font-weight: bold; }
+    .mm-slot .vs { font-family: 'Orbitron', monospace; color: var(--red); font-weight: bold; }
+    .btn-confirm-mm { margin-top: 12px; text-align: center; }
+    .warning { color: var(--gold2); font-size: 11px; margin-top: 6px; }
   </style>
 </head>
 <body>
@@ -161,23 +169,21 @@
 
   <div class="header">
     <h1>KOF XV — TORNEO</h1>
-    <p>BRACKET OFICIAL · SELECCIÓN DE EQUIPO POR RONDA · FOTOS DESDE /chars/</p>
-  </div>
-
-  <div class="info-bar">
-    
+    <p>BRACKET OFICIAL · EMPAREJAMIENTOS MANUALES EN RONDA 1</p>
   </div>
 
   <div class="tabs">
     <button class="tab active" onclick="showTab('bracket',event)">🏆 BRACKET</button>
-    <button class="tab"        onclick="showTab('setup',event)">⚙️ JUGADORES</button>
-    <button class="tab"        onclick="showTab('standings',event)">📊 CLASIFICACIÓN</button>
+    <button class="tab" onclick="showTab('setup',event)">⚙️ JUGADORES</button>
+    <button class="tab" onclick="showTab('standings',event)">📊 CLASIFICACIÓN</button>
   </div>
 
   <div id="tab-bracket" class="tab-content active">
     <div class="reset-row">
       <button class="btn btn-red btn-sm" onclick="resetTournament()">🔄 REINICIAR TORNEO</button>
-
+      <button class="btn btn-gold btn-sm" onclick="openMatchmakingPanel()">🎲 DEFINIR EMPAREJAMIENTOS R1</button>
+    </div>
+    <div id="matchmaking-panel-container" style="margin-bottom: 12px;"></div>
     <div class="bracket-wrap">
       <div class="bracket-grid" id="bracketGrid"></div>
     </div>
@@ -201,16 +207,10 @@
 </div>
 
 <script>
-  // --------------------------------------------------------------
-  //  CONFIGURACIÓN GLOBAL - FOTOS DESDE CARPETA LOCAL DEL REPO
-  // --------------------------------------------------------------
-  // Las imágenes se cargan desde la carpeta "/chars/" en la raíz del sitio.
-  // Si estás en GitHub Pages, asegúrate de tener la carpeta "chars" en la raíz con los .png
+  // ---------- CONFIGURACION CHARS ----------
   function getCharacterImageUrl(charName) {
     if (!charName) return '';
-    // Limpiar nombre: reemplazar espacios por guión bajo para URL amigable
     const clean = charName.trim().replace(/\s+/g, '_');
-    // Ruta relativa a la raíz del sitio (funciona localmente y en GitHub Pages)
     return `./chars/${encodeURIComponent(clean)}.png`;
   }
 
@@ -227,36 +227,80 @@
     return Array.from({length:4}, (_, i) => ({ chars: pool.slice(i*3, i*3+3) }));
   }
 
-  // Jugadores base (16)
   let players = Array.from({length:16}, (_, i) => ({
     id: i,
     name: `Jugador ${i+1}`,
     teams: rndTeams()
   }));
 
-  let matches = [];
+  let matches = [];       // estructura de rondas: [ [match...], [match...], ... ]
   let usedTeams = {};
   let eliminated = [];
   let champion = null;
 
+  // Emparejamientos personalizados para R1 (8 partidos)
+  let customRound1Pairings = null; // array de {p1Id, p2Id} si no es null se fuerza
+
+  // Inicializar estructura de torneo con espacios vacíos
   function initTournamentStruct() {
-    matches = [];
     usedTeams = {};
     eliminated = [];
     champion = null;
     players.forEach(p => usedTeams[p.id] = new Set());
-
-    matches.push(Array.from({length:8}, (_, i) => mkMatch(i*2, i*2+1)));
-    matches.push(Array.from({length:4}, () => mkMatch(null, null)));
-    matches.push(Array.from({length:2}, () => mkMatch(null, null)));
-    matches.push([mkMatch(null, null)]);
+    
+    // Ronda 1: 8 partidos. Inicialmente sin jugadores.
+    let round1 = Array.from({length:8}, () => ({ p1: null, p2: null, winner: null, teamP1: null, teamP2: null }));
+    
+    // Si existen emparejamientos personalizados, los aplicamos
+    if (customRound1Pairings && customRound1Pairings.length === 8) {
+      for (let i = 0; i < 8; i++) {
+        const pair = customRound1Pairings[i];
+        if (pair && pair.p1Id !== undefined && pair.p2Id !== undefined) {
+          round1[i].p1 = pair.p1Id;
+          round1[i].p2 = pair.p2Id;
+        } else {
+          round1[i].p1 = null;
+          round1[i].p2 = null;
+        }
+      }
+    } else {
+      // Por defecto vacío para que el usuario tenga que elegir
+      for (let i = 0; i < 8; i++) {
+        round1[i].p1 = null;
+        round1[i].p2 = null;
+      }
+    }
+    
+    matches = [round1];
+    // Ronda 2 (Cuartos): 4 vacíos
+    matches.push(Array.from({length:4}, () => ({ p1: null, p2: null, winner: null, teamP1: null, teamP2: null })));
+    // Ronda 3 (Semis): 2 vacíos
+    matches.push(Array.from({length:2}, () => ({ p1: null, p2: null, winner: null, teamP1: null, teamP2: null })));
+    // Ronda 4 (Final): 1 vacío
+    matches.push([{ p1: null, p2: null, winner: null, teamP1: null, teamP2: null }]);
   }
 
-  function mkMatch(p1, p2) {
-    return { p1, p2, winner: null, teamP1: null, teamP2: null };
+  // Función para re-calcular brackets hacia arriba de forma automática y distribuida
+  // cuando se declara un ganador, se coloca en la siguiente ronda según el índice lógico (0-3 para cuartos, etc.)
+  function propagateWinnerToNextRound(winnerId, currentRound, currentMatchIdx) {
+    const nextRound = currentRound + 1;
+    if (nextRound >= matches.length) {
+      champion = winnerId;
+      return;
+    }
+    // Distribución estándar: cada partido de ronda superior recibe dos ganadores de los dos partidos inferiores
+    // Ejemplo: partido 0 de cuartos recibe ganadores de partidos 0 y 1 de R16.
+    const nextMatchIdx = Math.floor(currentMatchIdx / 2);
+    const side = (currentMatchIdx % 2 === 0) ? 'p1' : 'p2';
+    matches[nextRound][nextMatchIdx][side] = winnerId;
+    if (side === 'p1') matches[nextRound][nextMatchIdx].teamP1 = null;
+    else matches[nextRound][nextMatchIdx].teamP2 = null;
+    // Limpiar winner del partido siguiente para que se pueda recalcular si se resetea algo
+    matches[nextRound][nextMatchIdx].winner = null;
   }
 
-  const gp = id => (id == null) ? null : players[id];
+  function mkMatch(p1, p2) { return { p1, p2, winner: null, teamP1: null, teamP2: null }; }
+  const gp = id => (id === null || id === undefined) ? null : players[id];
   
   function playerRank(pid) {
     if (champion === pid) return 1;
@@ -272,9 +316,13 @@
     let html = '';
     matches.forEach((round, ri) => {
       html += `<div class="round-col"><div class="round-title">${RNAMES[ri] || 'RONDA'}</div>`;
+      // Espaciado dinámico para mejor visualización de brackets
       round.forEach((m, mi) => {
-        const marginTop = ri > 0 ? `margin-top:${(Math.pow(2, ri)-1)*90}px;` : '';
-        html += `<div class="match-slot" style="${marginTop}">`;
+        let marginTop = 0;
+        if (ri === 1) marginTop = mi * 85;
+        if (ri === 2) marginTop = mi * 200;
+        if (ri === 3) marginTop = 220;
+        html += `<div class="match-slot" style="margin-top:${marginTop}px;">`;
         html += renderPlayerCard(m, 'p1', ri, mi);
         html += `<div class="match-sep">⚔️ VS ⚔️</div>`;
         html += renderPlayerCard(m, 'p2', ri, mi);
@@ -284,7 +332,7 @@
     });
 
     html += `<div class="round-col"><div class="round-title" style="color:var(--gold)">🏆 CAMPEÓN</div>`;
-    html += `<div style="margin-top:170px;">`;
+    html += `<div style="margin-top:270px;">`;
     if (champion !== null) {
       const p = gp(champion);
       html += `<div class="pcard st-champ" style="text-align:center;padding:18px;cursor:default;">
@@ -399,7 +447,7 @@
             else if (wasUsed) { cls += ' tp-prev-used'; status = '🕒 USADO ANTES'; }
             else { cls += ''; status = ''; }
           }
-          const clickAttr = (!matchDone && !isCur) ? `onclick="selectTeamForMatch(${ri},${mi},'${side}',${ti})"` : '';
+          const clickAttr = (!matchDone && !isCur && p) ? `onclick="selectTeamForMatch(${ri},${mi},'${side}',${ti})"` : '';
           const charsHtml = team.chars.map(c => `
             <div class="tp-char">
               <img src="${getCharacterImageUrl(c)}" onerror="this.style.opacity='.2'" />
@@ -423,7 +471,7 @@
         <button class="btn btn-green" onclick="declareWinner(${ri},${mi},'p1')">🏆 ${p1.name} GANA</button>
         <button class="btn btn-green" onclick="declareWinner(${ri},${mi},'p2')">🏆 ${p2.name} GANA</button>
       </div>`;
-    } else if (m.winner === null && (m.teamP1 === null || m.teamP2 === null)) {
+    } else if (m.winner === null && (m.teamP1 === null || m.teamP2 === null) && m.p1 && m.p2) {
       html += `<div class="ov-hint">⚠️ AMBOS JUGADORES DEBEN SELECCIONAR UN EQUIPO para esta ronda ⚠️</div>`;
     } else if (m.winner !== null) {
       html += `<div style="text-align:center;margin-top:14px;"><span style="background:var(--gold);color:black;padding:4px 8px;border-radius:20px;">🏅 GANADOR: ${gp(m.winner)?.name}</span></div>`;
@@ -457,16 +505,7 @@
     
     if (loserId !== null && !eliminated.includes(loserId)) eliminated.push(loserId);
     
-    const nextRound = ri + 1;
-    if (nextRound < matches.length) {
-      const nextMatchIdx = Math.floor(mi / 2);
-      const nextSide = (mi % 2 === 0) ? 'p1' : 'p2';
-      matches[nextRound][nextMatchIdx][nextSide] = winnerId;
-      if (nextSide === 'p1') matches[nextRound][nextMatchIdx].teamP1 = null;
-      else matches[nextRound][nextMatchIdx].teamP2 = null;
-    } else {
-      champion = winnerId;
-    }
+    propagateWinnerToNextRound(winnerId, ri, mi);
     closeOverlay();
     renderBracket();
     renderStandings();
@@ -475,6 +514,62 @@
   function closeOverlay() { document.getElementById('overlay').style.display = 'none'; activeMatchRef = null; }
   function overlayBgClick(e) { if (e.target === document.getElementById('overlay')) closeOverlay(); }
   
+  // Panel para emparejamientos manuales
+  function openMatchmakingPanel() {
+    const container = document.getElementById('matchmaking-panel-container');
+    const availablePlayers = players.filter(p => true);
+    let html = `<div class="matchmaking-panel"><div class="mm-title">🎲 DEFINIR CRUCES - RONDA 1 (8 PARTIDOS)</div>
+    <div class="mm-grid">`;
+    for (let i = 0; i < 8; i++) {
+      html += `<div class="mm-slot">
+        <span>🔹 Partido ${i+1}</span>
+        <select id="mm_p1_${i}"><option value="">-- Selecciona Jugador --</option>${availablePlayers.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}</select>
+        <span class="vs">VS</span>
+        <select id="mm_p2_${i}"><option value="">-- Selecciona Jugador --</option>${availablePlayers.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}</select>
+      </div>`;
+    }
+    html += `</div><div class="btn-confirm-mm"><button class="btn btn-gold" onclick="applyMatchmaking()">✅ CONFIRMAR EMPAREJAMIENTOS Y REINICIAR TORNEO</button></div>
+    <div class="warning">⚠️ Asegúrate de usar cada jugador una sola vez (16 jugadores únicos).</div>
+    </div>`;
+    container.innerHTML = html;
+  }
+
+  function applyMatchmaking() {
+    const pairings = [];
+    const usedIds = new Set();
+    for (let i = 0; i < 8; i++) {
+      const p1Val = document.getElementById(`mm_p1_${i}`).value;
+      const p2Val = document.getElementById(`mm_p2_${i}`).value;
+      if (!p1Val || !p2Val) {
+        alert(`Error: Partido ${i+1} tiene selección incompleta.`);
+        return;
+      }
+      const p1id = parseInt(p1Val);
+      const p2id = parseInt(p2Val);
+      if (p1id === p2id) {
+        alert(`Error: en partido ${i+1} el mismo jugador no puede enfrentarse a sí mismo.`);
+        return;
+      }
+      if (usedIds.has(p1id) || usedIds.has(p2id)) {
+        alert(`Error: Un jugador aparece más de una vez en la primera ronda. Cada jugador debe jugar exactamente un partido.`);
+        return;
+      }
+      usedIds.add(p1id);
+      usedIds.add(p2id);
+      pairings.push({ p1Id: p1id, p2Id: p2id });
+    }
+    if (usedIds.size !== 16) {
+      alert(`Deben usarse los 16 jugadores exactamente. Usados: ${usedIds.size}/16`);
+      return;
+    }
+    customRound1Pairings = pairings;
+    initTournamentStruct();
+    renderBracket();
+    renderStandings();
+    document.getElementById('matchmaking-panel-container').innerHTML = '';
+    showTab('bracket',null);
+  }
+
   function renderSetup() {
     const container = document.getElementById('setupGrid');
     container.innerHTML = players.map((p, idx) => `
@@ -497,6 +592,7 @@
   
   function saveSetup() {
     if (!confirm('Guardar cambios reiniciará el torneo. ¿Continuar?')) return;
+    customRound1Pairings = null;
     initTournamentStruct();
     renderBracket();
     renderStandings();
@@ -531,6 +627,7 @@
   
   function resetTournament() {
     if (!confirm('⚠️ Reiniciar elimina todos los resultados y selecciones de equipo. ¿Estás seguro?')) return;
+    customRound1Pairings = null;
     initTournamentStruct();
     renderBracket();
     renderStandings();
@@ -543,7 +640,9 @@
     if (e && e.target) e.target.classList.add('active');
     if (name === 'standings') renderStandings();
     if (name === 'setup') renderSetup();
-    if (name === 'bracket') renderBracket();
+    if (name === 'bracket') {
+      renderBracket();
+    }
   }
   
   initTournamentStruct();
